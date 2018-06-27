@@ -106,11 +106,11 @@ class CreateVNFD(command.ShowOne):
                               ['tenant_id', 'name', 'description'])
         logger.debug("body to tacker before POST: ", body)
         vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
-        logger.debug("response from tacker after POST: ", vnfd)
+        # logger.debug("response from tacker after POST: ", vnfd)
         vnfd_id = vnfd[_VNFD]['id']
-        logger.debug("vnfd_id before PATCH: ", vnfd_id)
+        # logger.debug("vnfd_id before PATCH: ", vnfd_id)
         resp = self.app.client_manager.tackerclient.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
-        logger.debug("response from tacker after PATCH: ", resp)
+        # logger.debug("response from tacker after PATCH: ", resp)
         return "result", "OK"
 
 
