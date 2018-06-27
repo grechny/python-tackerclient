@@ -427,7 +427,8 @@ class Client(ClientBase):
         url = self.vnfd_path % vnfd_id
         headers = {'Content-Type': 'application/octet-stream'}
         body = vnfd_package
-        resp, body = self.patch(url, headers=headers, body=body)
+        # resp, body = self.patch(url, headers=headers, body=body)
+        resp, body = self.put(url, headers=headers, body=body)
         return (resp, body), resp
 
     @APIParamsCall
