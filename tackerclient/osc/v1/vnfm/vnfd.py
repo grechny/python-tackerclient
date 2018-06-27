@@ -24,6 +24,7 @@ from tackerclient.i18n import _
 from tackerclient.osc import sdk_utils
 from tackerclient.osc import utils as tacker_osc_utils
 from tackerclient.tacker import v1_0 as tackerV10
+from tackerclient.shell import logging
 
 _attr_map = (
     ('id', 'ID', tacker_osc_utils.LIST_BOTH),
@@ -87,6 +88,8 @@ class CreateVNFD(command.ShowOne):
 
     def take_action(self, parsed_args):
         client = self.app.client_manager.tackerclient
+        if parsed_args.vnfd_file.endswith('.csar'):
+            return self.csar_package(parsed_args)
         vnfd = client.create_vnfd(self.args2body(parsed_args))
         display_columns, columns = _get_columns(vnfd[_VNFD])
         vnfd[_VNFD]['attributes']['vnfd'] = yaml.load(
@@ -95,6 +98,20 @@ class CreateVNFD(command.ShowOne):
             sdk_utils.DictModel(vnfd[_VNFD]),
             columns, formatters=_formatters)
         return (display_columns, data)
+
+    def csar_package(self, parsed_args):
+        logger = logging.getLogger("vnfd.py")
+        body = {_VNFD: {}}
+        tackerV10.update_dict(parsed_args, body[_VNFD],
+                              ['tenant_id', 'name', 'description'])
+        logger.debug("body to tacker before POST: ", body)
+        vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
+        logger.debug("response from tacker after POST: ", vnfd)
+        vnfd_id = vnfd[_VNFD]['id']
+        logger.debug("vnfd_id before PATCH: ", vnfd_id)
+        resp = self.app.client_manager.tackerclient.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
+        logger.debug("response from tacker after PATCH: ", resp)
+        return "result", "OK"
 
 
 class DeleteVNFD(command.Command):

@@ -295,6 +295,11 @@ class ClientBase(object):
         return self.do_request("POST", action, body=body,
                                headers=headers, params=params)
 
+    def patch(self, action, body=None, headers=None, params=None):
+        # Do not retry PATCH requests to avoid the orphan objects problem.
+        return self.do_request("PATCH", action, body=body,
+                               headers=headers, params=params)
+
     def put(self, action, body=None, headers=None, params=None):
         return self.retry_request("PUT", action, body=body,
                                   headers=headers, params=params)
@@ -330,7 +335,6 @@ class ClientBase(object):
 
 
 class Client(ClientBase):
-
     extensions_path = "/extensions"
     extension_path = "/extensions/%s"
 
@@ -412,6 +416,19 @@ class Client(ClientBase):
     def create_vnfd(self, body):
         body[self._VNFD]['service_types'] = [{'service_type': 'vnfd'}]
         return self.post(self.vnfds_path, body)
+
+    @APIParamsCall
+    def upload_vnfd(self, vnfd_id, vnfd_package):
+        """Upload the data for an VNFD.
+
+        :param vnfd_id: ID of the VNFD to upload data for.
+        :param vnfd_package: File-like object supplying the data to upload.
+        """
+        url = self.vnfd_path % vnfd_id
+        headers = {'Content-Type': 'application/octet-stream'}
+        body = vnfd_package
+        resp, body = self.patch(url, headers=headers, body=body)
+        return (resp, body), resp
 
     @APIParamsCall
     def delete_vnfd(self, vnfd):
