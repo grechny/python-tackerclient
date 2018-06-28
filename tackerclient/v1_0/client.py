@@ -30,7 +30,7 @@ from tackerclient.i18n import _
 
 _logger = logging.getLogger(__name__)
 DEFAULT_DESC_LENGTH = 25
-DEFAULT_ERROR_REASON_LENGTH = 100
+DEFAULT_ERROR_REASON_LENGTH = 100 
 
 
 def exception_handler_v10(status_code, error_content):
