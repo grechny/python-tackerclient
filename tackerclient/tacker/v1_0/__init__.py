@@ -435,8 +435,8 @@ class CreateCommand(TackerCommand, show.ShowOne):
         _merge_args(self, parsed_args, _extra_values,
                     self.values_specs)
         if parsed_args.vnfd_file.endswith('.csar'):
-            return self.csar_package(parsed_args)
-        body = self.args2body(parsed_args)
+            body = self.csar_package(parsed_args)
+        # body = self.args2body(parsed_args)
         body[self.resource].update(_extra_values)
         obj_creator = getattr(tacker_client,
                               "create_%s" % self.resource)
@@ -458,26 +458,15 @@ class CreateCommand(TackerCommand, show.ShowOne):
         logger = logging.getLogger("vnfd.py")
         body = {"vnfd": {'tenant_id': "1", 'name': "name_1", 'description': "description_1"}}
         # self.update_dict(parsed_args, body["vnfd"], ['tenant_id', 'name', 'description'])
-        logger.debug("body to tacker before POST: ", body)
-        vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
+        # logger.debug("body to tacker before POST: ", body)
+        # vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
         # logger.debug("response from tacker after POST: ", vnfd)
-        vnfd_id = vnfd["vnfd"]['id']
+        # vnfd_id = vnfd["vnfd"]['id']
         # logger.debug("vnfd_id before PATCH: ", vnfd_id)
-        resp = self.app.client_manager.tackerclient.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
+        # resp = self.app.client_manager.tackerclient.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
         # logger.debug("response from tacker after PATCH: ", resp)
-        return "result", "OK"
-
-    def update_dict(obj, dict, attributes):
-        """Update dict with fields from obj.attributes
-
-        :param obj: the object updated into dict
-        :param dict: the result dictionary
-        :param attributes: a list of attributes belonging to obj
-        """
-        for attribute in attributes:
-            if hasattr(obj, attribute) and getattr(obj, attribute) is not None:
-                dict[attribute] = getattr(obj, attribute)
-
+        return body
+        # return "result", "OK"
 
 class UpdateCommand(TackerCommand):
     """Update resource's information."""
