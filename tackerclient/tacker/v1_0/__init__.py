@@ -31,6 +31,7 @@ from tackerclient.common._i18n import _
 from tackerclient.common import command
 from tackerclient.common import exceptions
 from tackerclient.common import utils
+from tackerclient.tacker import v1_0 as tackerV10
 
 HEX_ELEM = '[0-9A-Fa-f]'
 UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
@@ -434,6 +435,8 @@ class CreateCommand(TackerCommand, show.ShowOne):
         _extra_values = parse_args_to_dict(self.values_specs)
         _merge_args(self, parsed_args, _extra_values,
                     self.values_specs)
+        if parsed_args.vnfd_file.endswith('.csar'):
+            return self.csar_package(parsed_args)
         body = self.args2body(parsed_args)
         body[self.resource].update(_extra_values)
         obj_creator = getattr(tacker_client,
@@ -451,6 +454,21 @@ class CreateCommand(TackerCommand, show.ShowOne):
         else:
             info = {'': ''}
         return zip(*sorted(info.items()))
+
+    def csar_package(self, parsed_args):
+        logger = logging.getLogger("vnfd.py")
+        body = {"vnfd": {}}
+        tackerV10.update_dict(parsed_args, body["vnfd"],
+                              ['tenant_id', 'name', 'description'])
+        logger.debug("body to tacker before POST: ", body)
+        vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
+        # logger.debug("response from tacker after POST: ", vnfd)
+        vnfd_id = vnfd["vnfd"]['id']
+        # logger.debug("vnfd_id before PATCH: ", vnfd_id)
+        resp = self.app.client_manager.tackerclient.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
+        # logger.debug("response from tacker after PATCH: ", resp)
+        return "result", "OK"
+
 
 
 class UpdateCommand(TackerCommand):
