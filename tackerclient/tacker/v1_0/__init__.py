@@ -456,9 +456,8 @@ class CreateCommand(TackerCommand, show.ShowOne):
 
     def csar_package(self, parsed_args):
         logger = logging.getLogger("vnfd.py")
-        body = {"vnfd": {}}
-        self.update_dict(parsed_args, body["vnfd"],
-                              ['tenant_id', 'name', 'description'])
+        body = {"vnfd": {'tenant_id': "1", 'name': "name_1", 'description': "description_1"}}
+        # self.update_dict(parsed_args, body["vnfd"], ['tenant_id', 'name', 'description'])
         logger.debug("body to tacker before POST: ", body)
         vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
         # logger.debug("response from tacker after POST: ", vnfd)
@@ -468,6 +467,16 @@ class CreateCommand(TackerCommand, show.ShowOne):
         # logger.debug("response from tacker after PATCH: ", resp)
         return "result", "OK"
 
+    def update_dict(obj, dict, attributes):
+        """Update dict with fields from obj.attributes
+
+        :param obj: the object updated into dict
+        :param dict: the result dictionary
+        :param attributes: a list of attributes belonging to obj
+        """
+        for attribute in attributes:
+            if hasattr(obj, attribute) and getattr(obj, attribute) is not None:
+                dict[attribute] = getattr(obj, attribute)
 
 
 class UpdateCommand(TackerCommand):
