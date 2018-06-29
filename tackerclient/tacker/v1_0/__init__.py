@@ -31,7 +31,6 @@ from tackerclient.common._i18n import _
 from tackerclient.common import command
 from tackerclient.common import exceptions
 from tackerclient.common import utils
-from tackerclient.tacker import v1_0 as tackerV10
 
 HEX_ELEM = '[0-9A-Fa-f]'
 UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
@@ -458,7 +457,7 @@ class CreateCommand(TackerCommand, show.ShowOne):
     def csar_package(self, parsed_args):
         logger = logging.getLogger("vnfd.py")
         body = {"vnfd": {}}
-        tackerV10.update_dict(parsed_args, body["vnfd"],
+        self.update_dict(parsed_args, body["vnfd"],
                               ['tenant_id', 'name', 'description'])
         logger.debug("body to tacker before POST: ", body)
         vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
