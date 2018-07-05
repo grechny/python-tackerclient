@@ -458,13 +458,13 @@ class CreateCommand(TackerCommand, show.ShowOne):
         logger = logging.getLogger("vnfd.py")
         body = {"vnfd": {'tenant_id': "1", 'name': "name_1", 'description': "description_1"}}
         # self.update_dict(parsed_args, body["vnfd"], ['tenant_id', 'name', 'description'])
-        # logger.debug("body to tacker before POST: ", body)
-        # vnfd = self.app.client_manager.tackerclient.create_vnfd(body)
-        # logger.debug("response from tacker after POST: ", vnfd)
-        # vnfd_id = vnfd["vnfd"]['id']
-        # logger.debug("vnfd_id before PATCH: ", vnfd_id)
-        # resp = self.app.client_manager.tackerclient.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
-        # logger.debug("response from tacker after PATCH: ", resp)
+        logger.debug("body to tacker before POST: ", body)
+        vnfd = self.app.client_manager.tacker.create_vnfd(body)
+        logger.debug("response from tacker after POST: ", vnfd)
+        vnfd_id = vnfd["vnfd"]['id']
+        logger.debug("vnfd_id before PATCH: ", vnfd_id)
+        resp = self.app.client_manager.tacker.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
+        logger.debug("response from tacker after PATCH: ", resp)
         return body
         # return "result", "OK"
 
