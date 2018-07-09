@@ -434,8 +434,8 @@ class CreateCommand(TackerCommand, show.ShowOne):
         _extra_values = parse_args_to_dict(self.values_specs)
         _merge_args(self, parsed_args, _extra_values,
                     self.values_specs)
-        if parsed_args.vnfd_file.endswith('.csar'):
-            body = self.csar_package(parsed_args)
+        # if parsed_args.vnfd_file.endswith('.csar'):
+        body = self.csar_package(parsed_args)
         # body = self.args2body(parsed_args)
         body[self.resource].update(_extra_values)
         obj_creator = getattr(tacker_client,
@@ -456,17 +456,29 @@ class CreateCommand(TackerCommand, show.ShowOne):
 
     def csar_package(self, parsed_args):
         logger = logging.getLogger("vnfd.py")
-        body = {"vnfd": {'tenant_id': "1", 'name': "name_1", 'description': "description_1"}}
+        # body = {"vnfd": {'tenant_id': "1", 'name': "name_1", 'description': "description_1"}}
         # self.update_dict(parsed_args, body["vnfd"], ['tenant_id', 'name', 'description'])
-        logger.debug("body to tacker before POST: ", body)
-        vnfd = self.app.client_manager.tacker.create_vnfd(body)
-        logger.debug("response from tacker after POST: ", vnfd)
-        vnfd_id = vnfd["vnfd"]['id']
+        # logger.debug("body to tacker before POST: ", body)
+        # vnfd = self.app.client_manager.tacker.create_vnfd(body)
+        # logger.debug("response from tacker after POST: ", vnfd)
+        # vnfd_id = vnfd["vnfd"]['id']
+        vnfd_id = 'ff8f4304-db64-4ee2-a108-c5a2a05a6f10'
         logger.debug("vnfd_id before PATCH: ", vnfd_id)
-        resp = self.app.client_manager.tacker.upload_vnfd(vnfd_id, parsed_args.vnfd_file)
+        with open(parsed_args.vnfd_file) as f:
+            vnfd = f.read()
+        body = {self.resource: {}}
+        body[self.resource]['attributes'] = {'vnfd': vnfd}
+        resp = self.app.client_manager.tacker.upload_vnfd(vnfd_id, body)
+        # action = '/v1.0/vnfds/ff8f4304-db64-4ee2-a108-c5a2a05a6f10.json'
+        # method = 'PUT'
+        # resp, replybody = self.httpclient.do_request(
+        #     action, method, body=vnfd,
+        #     content_type='application/octet-stream')
+
+        # status_code = resp.status_code
         logger.debug("response from tacker after PATCH: ", resp)
-        return body
-        # return "result", "OK"
+        # return body
+        return "result", "OK"
 
 class UpdateCommand(TackerCommand):
     """Update resource's information."""
