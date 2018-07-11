@@ -18,19 +18,23 @@ from __future__ import print_function
 
 import abc
 import argparse
+import codecs
+import errno
 import logging
+import os
 import re
 
-from cliff.formatters import table
+import six
 from cliff import lister
 from cliff import show
+from cliff.formatters import table
 from oslo_serialization import jsonutils
-import six
+from toscaparser.tosca_template import ToscaTemplate
 
-from tackerclient.common._i18n import _
 from tackerclient.common import command
 from tackerclient.common import exceptions
 from tackerclient.common import utils
+from tackerclient.common._i18n import _
 
 HEX_ELEM = '[0-9A-Fa-f]'
 UUID_PATTERN = '-'.join([HEX_ELEM + '{8}', HEX_ELEM + '{4}',
@@ -98,7 +102,7 @@ def add_show_list_common_argument(parser):
         '-D', '--show-details',
         help=_('Show detailed info'),
         action='store_true',
-        default=False,)
+        default=False, )
     parser.add_argument(
         '--show_details',
         action='store_true',
@@ -164,9 +168,9 @@ def _process_previous_argument(current_arg, _value_number, current_type_str,
                                values_specs):
     if current_arg is not None:
         if _value_number == 0 and (current_type_str or _list_flag):
-                # This kind of argument should have value
-                raise exceptions.CommandError(
-                    _("Invalid values_specs %s") % ' '.join(values_specs))
+            # This kind of argument should have value
+            raise exceptions.CommandError(
+                _("Invalid values_specs %s") % ' '.join(values_specs))
         if _value_number > 1 or _list_flag or current_type_str == 'list':
             current_arg.update({'nargs': '+'})
         elif _value_number == 0:
@@ -265,7 +269,7 @@ def parse_args_to_dict(values_specs):
             # All others are value items
             # Make sure '--' occurs first and allow minus value
             if (not current_item or '=' in current_item or
-               _item.startswith('-') and not is_number(_item)):
+                    _item.startswith('-') and not is_number(_item)):
                 raise exceptions.CommandError(
                     _("Invalid values_specs %s") % ' '.join(values_specs))
             _value_number += 1
@@ -332,6 +336,7 @@ class TableFormater(table.TableFormatter):
 
     https://bugs.launchpad.net/python-tackerclient/+bug/1165962
     """
+
     def emit_list(self, column_names, data, stdout, parsed_args):
         if column_names:
             super(TableFormater, self).emit_list(column_names, data, stdout,
@@ -354,7 +359,6 @@ class TackerCommandMeta(abc.ABCMeta):
 
 @six.add_metaclass(TackerCommandMeta)
 class TackerCommand(command.OpenStackCommand):
-
     api = 'nfv-orchestration'
     values_specs = []
     json_indent = None
@@ -391,7 +395,7 @@ class TackerCommand(command.OpenStackCommand):
                 if isinstance(v, list):
                     value = '\n'.join(jsonutils.dumps(
                         i, indent=self.json_indent) if isinstance(i, dict)
-                        else str(i) for i in v)
+                                      else str(i) for i in v)
                     data[self.resource][k] = value
                 elif isinstance(v, dict):
                     value = jsonutils.dumps(v, indent=self.json_indent)
@@ -434,51 +438,88 @@ class CreateCommand(TackerCommand, show.ShowOne):
         _extra_values = parse_args_to_dict(self.values_specs)
         _merge_args(self, parsed_args, _extra_values,
                     self.values_specs)
-        # if parsed_args.vnfd_file.endswith('.csar'):
-        body = self.csar_package(parsed_args)
-        # body = self.args2body(parsed_args)
+        if parsed_args.vnfd_file.endswith('.csar'):
+            vnfd_id = self.create_vnfd_from_csar_package(parsed_args, _extra_values, tacker_client)
+            with open(parsed_args.vnfd_file, 'rb') as f:
+                vnfd = f.read()
+            resp = self.update_vnfd_from_csar_package(vnfd_id, vnfd)
+            return "result", "OK"
+        else:
+            body = self.args2body(parsed_args)
+            body[self.resource].update(_extra_values)
+            obj_creator = getattr(tacker_client,
+                                  "create_%s" % self.resource)
+            data = obj_creator(body)
+            self.format_output_data(data)
+            # {u'network': {u'id': u'e9424a76-6db4-4c93-97b6-ec311cd51f19'}}
+            info = self.resource in data and data[self.resource] or None
+            if info:
+                print(_('Created a new %s:') % self.resource,
+                      file=self.app.stdout)
+                for f in self.remove_output_fields:
+                    if f in info:
+                        info.pop(f)
+            else:
+                info = {'': ''}
+            return zip(*sorted(info.items()))
+
+    def create_vnfd_from_csar_package(self, parsed_args, _extra_values, tacker_client):
+        logger = logging.getLogger("vnfd.py")
+        body = {"vnfd": {'tenant_id': parsed_args.tenant_id, 'name': parsed_args.name,
+                         'description': parsed_args.description}}
+                         # "attributes": {"vnfd": "description: Demo example\nmetadata: {template_name: sample-tosca-vnfd}\ntopology_template:\n  node_templates:\n    CP1:\n      properties: {anti_spoofing_protection: false, management: true, order: 0}\n      requirements:\n      - virtualLink: {node: VL1}\n      - virtualBinding: {node: VDU1}\n      type: tosca.nodes.nfv.CP.Tacker\n    VDU1:\n      capabilities:\n        nfv_compute:\n          properties: {disk_size: 1 GB, mem_size: 512 MB, num_cpus: 1}\n      properties: {image: cirros-0.3.5-x86_64-disk}\n      type: tosca.nodes.nfv.VDU.Tacker\n    VL1:\n      properties: {network_name: net_mgmt, vendor: Tacker}\n      type: tosca.nodes.nfv.VL\ntosca_definitions_version: tosca_simple_profile_for_nfv_1_0_0\n"}}}
+        logger.debug("body to tacker before POST: ", body)
         body[self.resource].update(_extra_values)
         obj_creator = getattr(tacker_client,
                               "create_%s" % self.resource)
         data = obj_creator(body)
-        self.format_output_data(data)
-        # {u'network': {u'id': u'e9424a76-6db4-4c93-97b6-ec311cd51f19'}}
-        info = self.resource in data and data[self.resource] or None
-        if info:
-            print(_('Created a new %s:') % self.resource,
-                  file=self.app.stdout)
-            for f in self.remove_output_fields:
-                if f in info:
-                    info.pop(f)
-        else:
-            info = {'': ''}
-        return zip(*sorted(info.items()))
+        # self.format_output_data(data)
+        # # {u'network': {u'id': u'e9424a76-6db4-4c93-97b6-ec311cd51f19'}}
+        # info = self.resource in data and data[self.resource] or None
+        # if info:
+        #     print(_('Created a new %s:') % self.resource,
+        #           file=self.app.stdout)
+        #     for f in self.remove_output_fields:
+        #         if f in info:
+        #             info.pop(f)
+        # else:
+        #     info = {'': ''}
+        logger.debug("response from tacker after POST: ", data)
+        vnfd_id = data["vnfd"]['id']
+        str_vnfd_id = vnfd_id.encode("utf-8")
+        return str_vnfd_id
 
-    def csar_package(self, parsed_args):
-        logger = logging.getLogger("vnfd.py")
-        # body = {"vnfd": {'tenant_id': "1", 'name': "name_1", 'description': "description_1"}}
-        # self.update_dict(parsed_args, body["vnfd"], ['tenant_id', 'name', 'description'])
-        # logger.debug("body to tacker before POST: ", body)
-        # vnfd = self.app.client_manager.tacker.create_vnfd(body)
-        # logger.debug("response from tacker after POST: ", vnfd)
-        # vnfd_id = vnfd["vnfd"]['id']
-        vnfd_id = 'ff8f4304-db64-4ee2-a108-c5a2a05a6f10'
-        logger.debug("vnfd_id before PATCH: ", vnfd_id)
-        with open(parsed_args.vnfd_file) as f:
-            vnfd = f.read()
-        body = {self.resource: {}}
-        body[self.resource]['attributes'] = {'vnfd': vnfd}
-        resp = self.app.client_manager.tacker.upload_vnfd(vnfd_id, body)
-        # action = '/v1.0/vnfds/ff8f4304-db64-4ee2-a108-c5a2a05a6f10.json'
-        # method = 'PUT'
-        # resp, replybody = self.httpclient.do_request(
-        #     action, method, body=vnfd,
-        #     content_type='application/octet-stream')
+    def update_vnfd_from_csar_package(self, vnfd_id, vnfd):
+        path = "/var/lib/tacker/"
+        upload_folder = path + vnfd_id
+        try:
+            os.makedirs(upload_folder)
+        except OSError as e:
+            if e.errno != errno.EEXIST:
+                raise
+        if vnfd:
+            # save temporary file to uploaded dir
+            filename = os.path.join(path, 'tmp_' + vnfd_id + '.csar')
+            with open(filename, 'wb') as file:
+                file.write(vnfd)
+            # extract and validate CSAR with TOSCA parser
+            tosca = ToscaTemplate(filename, None, True, None, None, upload_folder)
+            # get main template for VNFD attribute
+            f = codecs.open(tosca.path, encoding='utf-8', errors='strict')
+            main_template = f.read()
+            f.close()
+            str_main_template = main_template.encode("utf-8")
 
-        # status_code = resp.status_code
-        logger.debug("response from tacker after PATCH: ", resp)
-        # return body
-        return "result", "OK"
+            # remove temporary archive
+            os.remove(filename)
+
+            # update descriptor with VNFD from main template
+            # body = {"vnfd": {'name': "name_2", 'description': "description_2",
+            body = {"vnfd": {"attributes": {"vnfd": str_main_template}}}
+            # body['attributes'] = {main_template}
+            resp = self.app.client_manager.tacker.upload_vnfd(vnfd_id, body)
+            return resp
+
 
 class UpdateCommand(TackerCommand):
     """Update resource's information."""
@@ -576,7 +617,7 @@ class DeleteCommand(TackerCommand):
                 msg = (_('Successfully %(status_msg)s %(resource)s(s):'
                          ' %(deleted_list)s') % {'status_msg': status_msg,
                                                  'deleted_list':
-                                                 ', '.join(deleted_ids),
+                                                     ', '.join(deleted_ids),
                                                  'resource': self.resource})
             err_msg = _("\n\nUnable to delete the below"
                         " %s(s):") % self.resource
@@ -683,7 +724,7 @@ class ListCommand(TackerCommand, lister.Lister):
             _columns = [x for x in self.list_columns if x in _columns]
         return (_columns, (utils.get_item_properties(
             s, _columns, formatters=self._formatters, )
-            for s in info), )
+            for s in info),)
 
     def get_data(self, parsed_args):
         self.log.debug('get_data(%s)', parsed_args)
