@@ -424,12 +424,9 @@ class Client(ClientBase):
         :param vnfd_id: ID of the VNFD to upload data for.
         :param vnfd_package: File-like object supplying the data to upload.
         """
-        url = self.vnfd_path % vnfd_id
+
         headers = {'Content-Type': 'application/octet-stream'}
-        body = vnfd_package
-        # resp, body = self.patch(url, headers=headers, body=body)
-        resp, body = self.put(url, headers=headers, body=body)
-        return (resp, body), resp
+        return self.put(self.vnfd_path % vnfd_id, headers=headers, body=vnfd_package)
 
     @APIParamsCall
     def delete_vnfd(self, vnfd):

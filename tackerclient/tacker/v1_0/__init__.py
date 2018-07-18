@@ -442,7 +442,7 @@ class CreateCommand(TackerCommand, show.ShowOne):
             vnfd_id = self.create_vnfd_from_csar_package(parsed_args, _extra_values, tacker_client)
             with open(parsed_args.vnfd_file, 'rb') as f:
                 vnfd = f.read()
-            resp = self.update_vnfd_from_csar_package(vnfd_id, vnfd)
+            self.update_vnfd_from_csar_package(vnfd_id, vnfd)
             return "result", "OK"
         else:
             body = self.args2body(parsed_args)
@@ -469,18 +469,6 @@ class CreateCommand(TackerCommand, show.ShowOne):
             body = {"vnfd": {'tenant_id': parsed_args.tenant_id, 'name': parsed_args.name,
                              'description': parsed_args.description
                              }}
-                # , "attributes": {
-                #     "vnfd": "description: Demo example\nmetadata: {template_name: "
-                #             "sample-tosca-vnfd}\ntopology_template:\n  node_templates:\n    CP1:\n      "
-                #             "properties: {anti_spoofing_protection: false, management: true, order: 0}\n "
-                #             "     requirements:\n      - virtualLink: {node: VL1}\n      - "
-                #             "virtualBinding: {node: VDU1}\n      type: tosca.nodes.nfv.CP.Tacker\n    "
-                #             "VDU1:\n      capabilities:\n        nfv_compute:\n          properties: {"
-                #             "disk_size: 1 GB, mem_size: 512 MB, num_cpus: 1}\n      properties: {image: "
-                #             "cirros-0.3.5-x86_64-disk}\n      type: tosca.nodes.nfv.VDU.Tacker\n    "
-                #             "VL1:\n      properties: {network_name: net_mgmt, vendor: Tacker}\n      "
-                #             "type: tosca.nodes.nfv.VL\ntosca_definitions_version: "
-                #             "tosca_simple_profile_for_nfv_1_0_0\n"}}}
         else:
             body = {"vnfd": {'tenant_id': parsed_args.tenant_id, 'name': parsed_args.name}}
         logger.debug("body to tacker before POST: ", body)
@@ -519,8 +507,7 @@ class CreateCommand(TackerCommand, show.ShowOne):
 
             # update descriptor with VNFD from main template
             body = {"vnfd": {"attributes": {"vnfd": str_main_template}}}
-            resp = self.app.client_manager.tacker.upload_vnfd(vnfd_id, body)
-            return resp
+            return self.app.client_manager.tacker.upload_vnfd(vnfd_id, body)
 
 
 class UpdateCommand(TackerCommand):
